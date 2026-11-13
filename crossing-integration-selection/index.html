@@ -1,0 +1,693 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One crossing, three acts</title>
+
+<style>
+:root{
+  --bg:#f6f6f4; --fg:#1d1d1b; --muted:#6b6b66; --card:#ffffff; --line:#dcdcd6;
+  --road:#4a4a4a; --lane:#8a8a8a; --sw:#cfcfc8; --swe:#a9a9a0; --swt:#55554f;
+  --blue:#2f6fdb; --red:#d64545; --green:#2e9e5b; --amber:#d9992b;
+  --c-len:#8a93a6; --c-road:#d9992b; --c-dir:#8b6fd1; --c-off:#2aa198; --c-h:#d6603b;
+  --bridge:#e9e0c9;
+}
+
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#161615; --fg:#ecece8; --muted:#a0a09a; --card:#201f1e; --line:#363532;
+    --road:#2b2b2b; --lane:#666; --sw:#5a5a54; --swe:#77776f; --swt:#d6d6cf;
+    --blue:#6b9cf0; --red:#ef6b6b; --green:#4cc37f; --amber:#e6b052;
+    --bridge:#6b6350;
+  }
+}
+
+*{box-sizing:border-box}
+
+body{
+  margin:0;background:var(--bg);color:var(--fg);
+  font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif
+}
+
+main{max-width:980px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:1.7rem;margin:.2em 0 .2em}
+h2{font-size:1.25rem;margin:0 0 .3em}
+.lead{color:var(--muted);margin:0 0 1.5em}
+section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin:0 0 24px}
+.act{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+.grid{display:grid;grid-template-columns:1.25fr 1fr;gap:20px;align-items:start}
+.grid.one{grid-template-columns:1fr}
+
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+
+svg{
+  width:100%;height:auto;display:block;
+  background:var(--bg);border-radius:10px;border:1px solid var(--line)
+}
+
+.road{fill:var(--road)}
+.lane{stroke:var(--lane);stroke-width:2;stroke-dasharray:14 12}
+.sw{fill:var(--sw);stroke:var(--swe);stroke-width:1.5}
+
+.bridge{
+  fill:var(--bridge);stroke:var(--swe);
+  stroke-width:2;stroke-dasharray:6 4
+}
+
+.lbl{font-size:12px;fill:var(--swt);font-family:inherit}
+.lbl.w{fill:#fff}
+
+.pt{fill:#fff;stroke:var(--fg);stroke-width:3}
+
+.cand{
+  stroke:var(--blue);stroke-width:24;opacity:.35;
+  transition:opacity .4s,stroke .4s,stroke-width .2s;fill:none
+}
+.cand.bad{stroke:var(--red);opacity:.6}
+.cand.win{stroke:var(--green);opacity:.85}
+.cand.dim{opacity:.1}
+.cand.hl{stroke-width:30;opacity:.8}
+
+.fail{stroke:var(--red);stroke-width:24;opacity:.6;fill:none}
+
+.badge{fill:var(--card);stroke:var(--blue);stroke-width:2}
+.badge-t{font-size:11px;font-weight:700;fill:var(--fg);text-anchor:middle}
+.hit{fill:none;stroke:var(--blue);stroke-width:3}
+.ray{stroke:var(--fg);stroke-width:2;stroke-dasharray:6 5;fill:none}
+.obst{fill:var(--red);stroke:#fff;stroke-width:1.5}
+
+[data-from],[data-until]{
+  opacity:0;transition:opacity .45s;pointer-events:none
+}
+[data-from].on,[data-until].on{opacity:1;pointer-events:auto}
+
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 0}
+
+button{
+  font:inherit;font-size:.9rem;padding:7px 14px;border-radius:8px;
+  border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer
+}
+button:hover{border-color:var(--blue)}
+button.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+button.active{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+button:disabled{opacity:.4;cursor:default}
+
+.cap{min-height:3.2em;margin:12px 0 0}
+.note{font-size:.9rem;color:var(--muted);border-left:3px solid var(--line);padding:2px 0 2px 12px;margin:14px 0 0}
+
+.row{
+  border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+  margin:0 0 10px;transition:opacity .4s,border-color .4s,background .4s;cursor:default
+}
+.row.dim{opacity:.4}
+.row.win{border-color:var(--green);background:color-mix(in srgb,var(--green) 10%,transparent)}
+.rhead{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:.95rem}
+.reason{color:var(--red);font-size:.85rem}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0}
+.chip{font-size:.76rem;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.chip.p{border-color:var(--green);color:var(--green)}
+.chip.f{border-color:var(--red);color:var(--red);font-weight:600}
+.chip.w{border-color:var(--amber);color:var(--amber)}
+
+.bar{display:flex;height:14px;border-radius:4px;overflow:hidden;background:var(--line);margin:8px 0 2px}
+.bar i{display:block;height:100%}
+
+.sum{font-size:.78rem;color:var(--muted);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.sum b{color:var(--fg)}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.78rem;color:var(--muted);margin:0 0 10px}
+.legend span::before{
+  content:"";display:inline-block;width:10px;height:10px;
+  border-radius:2px;margin-right:5px;background:var(--c)
+}
+
+code{background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:.85em}
+.formula{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:.85rem;margin:0 0 10px;overflow-x:auto}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:16px}
+.card{border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:.88rem}
+.card.here{border-color:var(--green)}
+.card b{display:block;margin-bottom:2px}
+footer{font-size:.82rem;color:var(--muted)}
+
+/* ---------- Realistic street details ---------- */
+
+.curb{fill:none;stroke:#aaa99f;stroke-width:4}
+.curb-highlight{fill:none;stroke:#e5e3dc;stroke-width:1.5}
+.paving-joint{stroke:#aaa99f;stroke-width:.8;opacity:.5}
+
+.zebra{fill:#f5f5ef;stroke:#d4d4ce;stroke-width:.7}
+.road-marking{fill:none;stroke:#c5c5bc;stroke-width:2;stroke-dasharray:18 14;opacity:.7}
+
+.tree-trunk{fill:#75614b}
+.tree-crown{fill:#64866b;stroke:#496e51;stroke-width:1.5}
+.lamp{fill:none;stroke:#55554f;stroke-width:3;stroke-linecap:round}
+.street-detail{fill:var(--swt);font-size:10px;font-family:inherit}
+.crossing-label{fill:var(--swt);font-size:10px;font-weight:600;font-family:inherit;letter-spacing:.5px}
+
+</style>
+</head>
+
+<body>
+<main>
+
+<h1>One crossing, three acts</h1>
+<p class="lead">
+A mapped crossing is only a <b>point</b> in OpenStreetMap.
+Two pipeline stages turn that point into a walkable surface
+between two sidewalks. The street below is illustrative,
+with made-up numbers.
+</p>
+
+<!-- ============ ACT 1 ============ -->
+
+<section id="act1">
+  <div class="act">Act 1</div>
+  <h2>Why a single attempt goes wrong</h2>
+  <p>
+    The point says "there is a crossing here", not <i>which way</i>
+    it goes or <i>between which sidewalks</i>. If we simply take
+    the nearest sidewalks and draw one strip, it can go wrong
+    in several ways.
+  </p>
+
+  <div class="grid">
+    <div id="svg1"></div>
+    <div>
+      <div class="controls" style="margin-top:0">
+        <button data-case="a" class="active">Slants to a corner</button>
+        <button data-case="b">Same side of the road</button>
+        <button data-case="c">Wrong level</button>
+      </div>
+      <p class="cap" id="cap1"></p>
+      <p class="note">
+        One guess is fragile. So the integration stage does not guess once.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ACT 2 ============ -->
+
+<section id="act2">
+  <div class="act">Act 2 · crossing integration</div>
+  <h2>Build several candidates on purpose</h2>
+  <p>
+    Instead of choosing, the stage lays an axis through the point,
+    searches outward from both ends and keeps the nearest few
+    sidewalks per end. Every unique pair becomes a candidate strip.
+  </p>
+
+  <div class="grid">
+    <div id="svg2"></div>
+    <div>
+      <p class="cap" id="cap2"></p>
+      <div class="controls">
+        <button id="back2">Back</button>
+        <button id="next2" class="primary">Next step</button>
+        <button id="reset2">Restart</button>
+      </div>
+      <p class="note" data-from="3" id="note2">
+        The overlap is intentional. This stage only proposes.
+        It never removes or changes the fused surfaces, and never
+        decides which strip is right.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ACT 3 ============ -->
+
+<section id="act3">
+  <div class="act">Act 3 · crossing selection</div>
+  <h2>Score the candidates and pick one winner</h2>
+  <p>
+    Selection runs checks on each candidate. Candidates that pass
+    are ranked by score, and <b>lower is better</b>.
+    Candidates that fail only win if nothing else passes.
+  </p>
+
+  <div class="grid">
+    <div>
+      <div id="svg3"></div>
+      <p class="cap" id="cap3"></p>
+      <div class="controls">
+        <button id="back3">Back</button>
+        <button id="next3" class="primary">Next step</button>
+        <button id="reset3">Restart</button>
+      </div>
+      <p class="note">Hover or tap a row to see its strip in the scene.</p>
+    </div>
+
+    <div>
+      <div class="formula">
+        <code>score = length + (1 − road share) × 10 + (1 − alignment) × 10 + off-centre × 1 + height penalty</code>
+        <br>Illustrative weights. Ambiguous height adds 2. Close-margin threshold is 3.
+      </div>
+
+      <div class="legend" data-from="2" id="legend3">
+        <span style="--c:var(--c-len)">length</span>
+        <span style="--c:var(--c-road)">road share</span>
+        <span style="--c:var(--c-dir)">alignment</span>
+        <span style="--c:var(--c-off)">off-centre</span>
+        <span style="--c:var(--c-h)">height</span>
+      </div>
+
+      <div id="rows3"></div>
+    </div>
+  </div>
+
+  <div class="cards" data-from="3" id="cards3">
+    <div class="card">
+      <b><code>selected</code></b>
+      A candidate passed and no passing runner-up is close.
+    </div>
+    <div class="card here">
+      <b><code>close_margin</code> · this example</b>
+      Another passing candidate (chain:1) is only 2.5 worse,
+      less than 3. The winner stays, but a QA warning is raised for review.
+    </div>
+    <div class="card">
+      <b><code>failed</code></b>
+      Nothing passed. The best eligible candidate is kept anyway and flagged.
+    </div>
+    <div class="card">
+      <b><code>unpaired</code></b>
+      No first end sidewalk was found. The crossing stays a plain strip.
+    </div>
+  </div>
+</section>
+
+<footer>
+  Act 1 shows the problem that motivates the design. Act 2 is
+  <code>crossing_integration_stage</code>, which builds candidates.
+  Act 3 is <code>crossing_selection_stage</code>, which checks,
+  scores and picks. All geometry and numbers on this page are illustrative.
+  Candidates longer than the maximum length are never selected,
+  and every incoming crossing not covered by a winner gets a
+  <code>crossing_selection.dropped</code> finding.
+</footer>
+
+</main>
+
+<script>
+
+/* ---------- Realistic street scene ---------- */
+
+function scene(inner) {
+  return `<svg viewBox="0 0 600 330"
+    role="img"
+    aria-label="Urban street with sidewalks and zebra crossing">
+
+  <defs>
+    <pattern id="asphalt" width="36" height="36"
+      patternUnits="userSpaceOnUse">
+      <rect width="36" height="36" fill="#484a49"/>
+      <circle cx="5" cy="8" r="0.8" fill="#696b69"/>
+      <circle cx="24" cy="19" r="0.7" fill="#333534"/>
+      <circle cx="13" cy="31" r="0.8" fill="#626461"/>
+      <circle cx="32" cy="5" r="0.6" fill="#777873"/>
+    </pattern>
+
+    <pattern id="pavement" width="40" height="24"
+      patternUnits="userSpaceOnUse">
+      <rect width="40" height="24" fill="#d1d0c8"/>
+      <path d="M0 0H40 M0 12H40 M20 0V12 M0 12V24"
+        fill="none" stroke="#b9b8af" stroke-width=".8"/>
+    </pattern>
+
+    <filter id="stripeShadow" x="-10%" y="-10%"
+      width="120%" height="120%">
+      <feGaussianBlur stdDeviation="1.2"/>
+    </filter>
+  </defs>
+
+  <rect width="600" height="330" fill="var(--bg)"/>
+
+  <!-- Asphalt road -->
+  <rect class="road" x="0" y="130" width="600" height="120"/>
+  <line class="lane" x1="0" y1="190" x2="600" y2="190"/>
+
+  <!-- Road edge markings -->
+  <line class="road-marking" x1="0" y1="137" x2="600" y2="137"/>
+  <line class="road-marking" x1="0" y1="243" x2="600" y2="243"/>
+
+  <!-- Sidewalks -->
+  <rect class="sw" x="0" y="75" width="600" height="55"/>
+  <rect class="sw" x="0" y="250" width="600" height="55"/>
+
+  <!-- Kerbs -->
+  <path class="curb" d="M0 130 H600 M0 250 H600"/>
+  <path class="curb-highlight" d="M0 126 H600 M0 254 H600"/>
+
+  <!-- Pavement labels -->
+  <text class="lbl" x="48" y="96">NORTH SIDEWALK</text>
+  <text class="lbl" x="48" y="280">SOUTH SIDEWALK</text>
+
+  <!-- Paving joints -->
+  <g class="paving-joint">
+    <path d="
+      M80 75V130 M160 75V130 M240 75V130
+      M360 75V130 M440 75V130 M520 75V130
+      M80 250V305 M160 250V305 M240 250V305
+      M360 250V305 M440 250V305 M520 250V305"/>
+  </g>
+
+  <!-- Zebra crossing shadow -->
+  <g opacity=".18" filter="url(#stripeShadow)">
+    <rect x="274" y="142" width="54" height="98" fill="#000"/>
+  </g>
+
+  <!-- Zebra crossing -->
+  <g id="zebra-crossing">
+    <rect class="zebra" x="276" y="143" width="48" height="10" rx="1"/>
+    <rect class="zebra" x="276" y="159" width="48" height="10" rx="1"/>
+    <rect class="zebra" x="276" y="175" width="48" height="10" rx="1"/>
+    <rect class="zebra" x="276" y="191" width="48" height="10" rx="1"/>
+    <rect class="zebra" x="276" y="207" width="48" height="10" rx="1"/>
+    <rect class="zebra" x="276" y="223" width="48" height="10" rx="1"/>
+  </g>
+
+  <!-- Tactile paving -->
+  <g fill="#b5a987" opacity=".9">
+    <rect x="274" y="117" width="52" height="9"/>
+    <rect x="274" y="254" width="52" height="9"/>
+  </g>
+
+  <g fill="#766c54" opacity=".55">
+    ${Array.from({length:5},(_,i)=>
+      `<circle cx="${280+i*10}" cy="121.5" r="1.3"/>
+       <circle cx="${280+i*10}" cy="258.5" r="1.3"/>`
+    ).join('')}
+  </g>
+
+  <!-- Trees -->
+  <g>
+    <rect class="tree-trunk" x="91" y="57" width="5" height="22"/>
+    <circle class="tree-crown" cx="93" cy="52" r="16"/>
+    <circle fill="#789a7a" cx="85" cy="55" r="9"/>
+
+    <rect class="tree-trunk" x="495" y="58" width="5" height="21"/>
+    <circle class="tree-crown" cx="498" cy="51" r="16"/>
+    <circle fill="#789a7a" cx="506" cy="55" r="9"/>
+
+    <rect class="tree-trunk" x="91" y="285" width="5" height="22"/>
+    <circle class="tree-crown" cx="93" cy="310" r="14"/>
+  </g>
+
+  <!-- Street lamps -->
+  <g class="lamp">
+    <path d="M205 78V37 Q205 29 214 29 H222"/>
+    <path d="M395 78V37 Q395 29 386 29 H378"/>
+  </g>
+
+  <g fill="#d9cda7">
+    <rect x="218" y="26" width="10" height="5" rx="2"/>
+    <rect x="372" y="26" width="10" height="5" rx="2"/>
+  </g>
+
+  <text class="crossing-label" x="300" y="109" text-anchor="middle">
+    PEDESTRIAN CROSSING
+  </text>
+
+  <!-- Additional scene elements -->
+  ${inner}
+
+  <!-- Mapped crossing point -->
+  <circle class="pt" cx="300" cy="190" r="7"/>
+  <text class="lbl w" x="312" y="186">mapped point</text>
+
+  </svg>`;
+}
+
+const strip=(x1,y1,x2,y2,cls,attrs='')=>
+  `<line class="${cls}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" ${attrs}/>`;
+
+
+
+/* ---------- Act 1 ---------- */
+
+const bridgeEl=`
+<rect class="bridge" x="380" y="205" width="160" height="32" rx="4"/>
+<text class="lbl" x="390" y="225">sidewalk on a bridge (level +1)</text>`;
+
+document.getElementById('svg1').innerHTML=scene(bridgeEl+`
+ <g data-case="a">${strip(304,130,150,250,'fail')}</g>
+ <g data-case="b" style="display:none">${strip(250,130,360,130,'fail')}</g>
+ <g data-case="c" style="display:none">${strip(440,130,440,205,'fail')}</g>`);
+
+const caps1={
+ a:"One sidewalk per side, but the wrong pair: the strip slants hard toward a corner instead of crossing straight over the road.",
+ b:"The two nearest sidewalks both lie on the same side of the road. The strip never crosses the road at all.",
+ c:"The nearest sidewalk is on a bridge above the road. It is close in distance but on another level, so it is not walkable from the road."
+};
+
+const cap1=document.getElementById('cap1');
+
+function setCase(k){
+  document.querySelectorAll('#svg1 [data-case]').forEach(g=>
+    g.style.display=g.dataset.case===k?'':'none'
+  );
+
+  document.querySelectorAll('#act1 button[data-case]').forEach(b=>
+    b.classList.toggle('active',b.dataset.case===k)
+  );
+
+  cap1.textContent=caps1[k];
+}
+
+document.querySelectorAll('#act1 button[data-case]').forEach(b=>
+  b.onclick=()=>setCase(b.dataset.case)
+);
+
+setCase('a');
+
+
+
+/* ---------- Candidates shared by Acts 2 and 3 ---------- */
+
+const C=[
+ {id:0,x1:270,y1:130,x2:270,y2:250,bx:270,by:150},
+ {id:1,x1:330,y1:130,x2:330,y2:250,bx:330,by:150},
+ {id:2,x1:290,y1:130,x2:330,y2:250,bx:303,by:158},
+ {id:3,x1:310,y1:130,x2:270,y2:250,bx:279,by:222}
+];
+
+const badge=c=>`
+<g>
+  <circle class="badge" cx="${c.bx}" cy="${c.by}" r="10"/>
+  <text class="badge-t" x="${c.bx}" y="${c.by+4}">${c.id}</text>
+</g>`;
+
+
+
+/* ---------- Generic stepper ---------- */
+
+function makeStepper(root,max,caps,ids){
+  let step=0;
+
+  const upd=()=>{
+    root.querySelectorAll('[data-from],[data-until],[data-dim-from],[data-bad-from],[data-win-from]').forEach(el=>{
+      const d=a=>el.dataset[a]!==undefined?+el.dataset[a]:null;
+      const f=d('from'),u=d('until');
+
+      if(f!==null||u!==null)
+        el.classList.toggle('on',(f===null||step>=f)&&(u===null||step<u));
+
+      const m=d('dimFrom');
+      if(m!==null)el.classList.toggle('dim',step>=m);
+
+      const b=d('badFrom');
+      if(b!==null)el.classList.toggle('bad',step>=b);
+
+      const w=d('winFrom');
+      if(w!==null)el.classList.toggle('win',step>=w);
+    });
+
+    document.getElementById(caps.cap).textContent=caps.text[step];
+    document.getElementById(ids.back).disabled=step===0;
+    document.getElementById(ids.next).disabled=step===max;
+  };
+
+  document.getElementById(ids.next).onclick=()=>{
+    if(step<max){step++;upd()}
+  };
+
+  document.getElementById(ids.back).onclick=()=>{
+    if(step>0){step--;upd()}
+  };
+
+  document.getElementById(ids.reset).onclick=()=>{
+    step=0;upd()
+  };
+
+  upd();
+}
+
+
+
+/* ---------- Act 2 ---------- */
+
+document.getElementById('svg2').innerHTML=scene(`
+ <g data-from="1">
+  <line class="ray" x1="300" y1="190" x2="300" y2="40"/>
+  <line class="ray" x1="300" y1="190" x2="300" y2="300"/>
+  <text class="lbl" x="308" y="62">search outward</text>
+ </g>
+
+ <g data-from="2">
+  <rect class="hit" x="40" y="80" width="256" height="50"/>
+  <rect class="hit" x="304" y="80" width="256" height="50"/>
+  <rect class="hit" x="40" y="250" width="256" height="40"/>
+  <rect class="hit" x="304" y="250" width="256" height="40"/>
+ </g>
+
+ <g data-from="3">
+  ${C.map(c=>strip(c.x1,c.y1,c.x2,c.y2,'cand')).join('')}
+  ${C.map(badge).join('')}
+ </g>
+`);
+
+makeStepper(document.getElementById('act2'),3,{
+  cap:'cap2',
+  text:[
+    "Start: the mapped crossing is a single point on the road.",
+    "Lay an axis through the point and cast a ray from each end. The first ray goes north and the second goes south.",
+    "Sidewalks hit by the rays (or touched by the strip's width) are kept: two at the north end, two at the south end.",
+    "Every unique pair of a north and a south sidewalk becomes a candidate strip: 2 × 2 = 4 strips, numbered 0–3 (chain:0 … chain:3). They overlap."
+  ]
+},{
+  back:'back2',next:'next2',reset:'reset2'
+});
+
+
+
+/* ---------- Act 3 ---------- */
+
+const barrier=`
+<g data-from="0">
+  <rect class="obst" x="281" y="199" width="12" height="12"/>
+  <text class="lbl w" x="200" y="214">obstacle</text>
+</g>`;
+
+const R=[
+ {
+  c:0,len:12.0,road:0.5,dir:0,off:3.0,h:0,tot:15.5,
+  chips:[['p','Length 12.0 m'],['p','No obstacle'],['p','Shared edges'],['p','Height close']],
+  reason:'',dim:null
+ },
+ {
+  c:1,len:12.0,road:1.0,dir:0,off:3.0,h:2.0,tot:18.0,
+  chips:[['p','Length 12.0 m'],['p','No obstacle'],['p','Shared edges'],['w','Height ambiguous']],
+  reason:'',dim:3
+ },
+ {
+  c:2,len:12.6,road:1.0,dir:0.5,off:1.0,h:0,tot:15.1,
+  chips:[['p','Length 12.6 m'],['p','No obstacle'],['p','Shared edges'],['f','Height far (0.25 m)']],
+  reason:'Fails: height gap too large',dim:1
+ },
+ {
+  c:3,len:12.6,road:1.5,dir:0.5,off:1.0,h:0,tot:15.6,
+  chips:[['p','Length 12.6 m'],['f','Obstacle on line'],['n','Edges not checked'],['n','Height not checked']],
+  reason:'Fails: obstacle between the ends',dim:1
+ }
+];
+
+document.getElementById('svg3').innerHTML=scene(
+  barrier+
+  C.map(c=>{
+    const a=[`data-c="${c.id}"`];
+
+    if(c.id===2||c.id===3)a.push('data-bad-from="1"');
+
+    if(c.id===0)a.push('data-win-from="3"');
+
+    a.push(`data-dim-from="${c.id===0?99:(c.id===1?3:3)}"`);
+
+    return strip(c.x1,c.y1,c.x2,c.y2,'cand',a.join(' '));
+  }).join('')+
+  C.map(badge).join('')
+);
+
+const seg=(v,col)=>
+  v>0?`<i style="width:${v/20*100}%;background:var(${col})" title="${v}"></i>`:'';
+
+document.getElementById('rows3').innerHTML=R.map(r=>{
+  const dimAttr=r.dim!==null?`data-dim-from="${r.dim}"`:'';
+  const winAttr=r.c===0?'data-win-from="3"':'';
+  const ignored=(r.c===2||r.c===3);
+  const sumTxt=`${r.len} + ${r.road} + ${r.dir} + ${r.off} + ${r.h}`;
+
+  return `
+  <div class="row" data-c="${r.c}" ${dimAttr} ${winAttr}>
+   <div class="rhead">
+     <b>chain:${r.c}</b>
+     <span class="reason" data-from="1">${r.reason}</span>
+     ${r.c===0?'<span data-from="3" style="color:var(--green);font-weight:600">Winner · status: close_margin</span>':''}
+     ${r.c===1?'<span data-from="3" style="color:var(--muted)">Runner-up, 2.5 worse</span>':''}
+   </div>
+
+   <div class="chips">
+     ${r.chips.map(x=>`<span class="chip ${x[0]}">${x[1]}</span>`).join('')}
+   </div>
+
+   <div data-from="2">
+     <div class="bar">
+       ${seg(r.len,'--c-len')}
+       ${seg(r.road,'--c-road')}
+       ${seg(r.dir,'--c-dir')}
+       ${seg(r.off,'--c-off')}
+       ${seg(r.h,'--c-h')}
+     </div>
+
+     <div class="sum">
+       <span>${sumTxt}</span>
+       <span>
+         ${ignored?'<s>'+r.tot.toFixed(1)+'</s> not used, failed':'= <b>'+r.tot.toFixed(1)+'</b>'}
+       </span>
+     </div>
+   </div>
+  </div>`;
+}).join('');
+
+
+/* ---------- Hover / tap highlight ---------- */
+
+document.querySelectorAll('#rows3 .row').forEach(row=>{
+  const line=document.querySelector(`#svg3 line[data-c="${row.dataset.c}"]`);
+
+  const on=()=>line.classList.add('hl');
+  const off=()=>line.classList.remove('hl');
+
+  row.addEventListener('mouseenter',on);
+  row.addEventListener('mouseleave',off);
+
+  row.addEventListener('click',()=>{
+    document.querySelectorAll('#svg3 .hl').forEach(l=>
+      l.classList.remove('hl')
+    );
+    on();
+  });
+});
+
+
+/* ---------- Act 3 stepper ---------- */
+
+makeStepper(document.getElementById('act3'),3,{
+  cap:'cap3',
+  text:[
+    "The four candidates from Act 2, each checked: length, obstacle on the line, shared edge with both end sidewalks, and height gap between the ends.",
+    "Candidates with a failed check are set aside. Chain:3 hits an obstacle. Chain:2 has a height gap that is too large. Note that chain:2 and chain:3 would have scored lowest, but passing comes before score.",
+    "The remaining candidates are scored. Each bar shows what the score is made of. Chain:0 and chain:1 are the same length. The difference comes from road coverage and the ambiguous height of chain:1.",
+    "The lowest score wins and is shown in green. Chain:1 is only 2.5 worse, within the close margin, so the result is flagged for review."
+  ]
+},{
+  back:'back3',next:'next3',reset:'reset3'
+});
+
+</script>
+</body>
+</html>
